@@ -1,0 +1,40 @@
+#
+#
+# Install the aks-preview extension
+az extension add --name aks-preview
+# Update the extension to make sure you have the latest version installed
+az extension update --name aks-preview
+
+az feature register --name AKSPrivateLinkPreview --namespace Microsoft.ContainerService
+az provider register -n Microsoft.ContainerService
+
+# Check the aks-preview extension as Registered
+az feature list -o table --query "[?contains(name, 'Microsoft.ContainerService/AKSPrivateLinkPreview')].{Name:name,State:properties.state}"
+
+# Register the required Providers
+az provider register --namespace Microsoft.ContainerService
+az provider register --namespace Microsoft.Network
+
+#
+# config ala SURFnet, courtesy Peter Boers
+#
+APP_ID=$(az ad app list --display-name "SURFcumulus Kubernetes principal" --query [].appId -o tsv)
+VNET_ID=$(az network vnet show --resource-group "cloudbolt-dev-rg" --name "cloudbolt-dev-vnet-01" --query id -o tsv)
+SUBNET_ID=$(az network vnet subnet show --resource-group "cloudbolt-dev-rg" --vnet-name "cloudbolt-dev-vnet-01" --name \
+"UnMapped" --query id -o tsv)
+#
+az aks create \
+	--resource-group "cloudbolt-dev-rg"  \
+	--name "cloudbolt-dev-kub01" \
+	--load-balancer-sku standard \
+	--node-count 1 \
+	--max-pods 32 \
+	--node-resource-group "cloudbolt-dev-kub-rg" \
+	--network-plugin azure \
+	--service-cidr 10.2.0.0/24 \
+	--dns-service-ip 10.2.0.10 \
+	--docker-bridge-address 172.17.0.1/16 \
+	--generate-ssh-keys \
+	--vnet-subnet-id $SUBNET_ID \
+	--service-principal $APP_ID \
+	--client-secret "XXXXXXXXXXXXXX"
